@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
@@ -14,7 +15,7 @@ class VoiceService {
   String? _currentAudioPath;
 
   Future<bool> requestMicrophonePermission() async {
-    if (kIsWeb) return true; // Web handles permissions via browser
+    if (kIsWeb) return true;
     final status = await Permission.microphone.request();
     return status.isGranted;
   }
@@ -23,29 +24,36 @@ class VoiceService {
     final hasPermission = await requestMicrophonePermission();
     if (!hasPermission) return false;
 
-    final dir = kIsWeb ? null : await getTemporaryDirectory();
-    _currentAudioPath = kIsWeb
-        ? null
-        : '${dir!.path}/voice_order_${DateTime.now().millisecondsSinceEpoch}.m4a';
+    try {
+      final dir = kIsWeb ? null : await getTemporaryDirectory();
+      _currentAudioPath = kIsWeb
+          ? null
+          : '${dir!.path}/voice_order_${DateTime.now().millisecondsSinceEpoch}.m4a';
 
-    await _recorder.start(
-      RecordConfig(
-        encoder: kIsWeb ? AudioEncoder.opus : AudioEncoder.aacLc,
-        bitRate: 128000,
-        sampleRate: 16000, // Whisper prefers 16kHz
-        numChannels: 1,
-      ),
-      path: _currentAudioPath ?? '',
-    );
-    return true;
+      await _recorder.start(
+        RecordConfig(
+          encoder: kIsWeb ? AudioEncoder.opus : AudioEncoder.aacLc,
+          bitRate: 128000,
+          sampleRate: 16000,
+          numChannels: 1,
+        ),
+        path: _currentAudioPath ?? '',
+      );
+      return true;
+    } catch (e) {
+      // Browser denied microphone permission
+      debugPrint('[VoiceService] Start recording error: $e');
+      return false;
+    }
   }
 
   Future<String?> stopRecordingAndTranscribe({String language = 'es'}) async {
     if (!await _recorder.isRecording()) return null;
 
     if (kIsWeb) {
-      final blob = await _recorder.stop();
-      return _transcribeBlob(blob, language: language);
+      // On web, stop() returns a blob URL string like "blob:https://..."
+      final blobUrl = await _recorder.stop();
+      return _transcribeBlobUrl(blobUrl, language: language);
     } else {
       await _recorder.stop();
       if (_currentAudioPath == null) return null;
@@ -63,13 +71,25 @@ class VoiceService {
     );
   }
 
-  Future<String?> _transcribeBlob(dynamic blob, {required String language}) async {
-    if (blob == null) return null;
-    // Web: blob is a String (data URL) from the record package
-    return _callWhisperApi(
-      MultipartFile.fromString(blob as String, filename: 'audio.webm'),
-      language: language,
-    );
+  // Fetch actual audio bytes from the blob URL, then send to Whisper
+  Future<String?> _transcribeBlobUrl(String? blobUrl, {required String language}) async {
+    if (blobUrl == null || blobUrl.isEmpty) return null;
+
+    try {
+      final response = await http.get(Uri.parse(blobUrl));
+      if (response.statusCode != 200 || response.bodyBytes.isEmpty) return null;
+
+      return _callWhisperApi(
+        MultipartFile.fromBytes(
+          response.bodyBytes,
+          filename: 'audio.webm',
+        ),
+        language: language,
+      );
+    } catch (e) {
+      debugPrint('[VoiceService] Blob fetch error: $e');
+      return null;
+    }
   }
 
   Future<String?> _callWhisperApi(
@@ -90,7 +110,6 @@ class VoiceService {
         options: Options(
           headers: {
             'Authorization': 'Bearer ${AppConstants.openAiKey}',
-            'Content-Type': 'multipart/form-data',
           },
         ),
       );
