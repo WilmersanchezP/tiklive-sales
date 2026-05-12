@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 // ── Brand palette ─────────────────────────────────────────────────────────────
 abstract class AppColors {
@@ -35,7 +36,7 @@ class AppTheme {
   static ThemeData get dark => ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
-        fontFamily: 'Inter',
+        fontFamily: GoogleFonts.inter().fontFamily,
         colorScheme: const ColorScheme.dark(
           primary: AppColors.primary,
           secondary: AppColors.accent,
@@ -61,7 +62,7 @@ class AppTheme {
           elevation: 0,
           centerTitle: false,
           titleTextStyle: TextStyle(
-            fontFamily: 'Inter',
+            fontFamily: GoogleFonts.inter().fontFamily,
             fontSize: 18,
             fontWeight: FontWeight.w600,
             color: AppColors.textPrimary,
@@ -94,7 +95,7 @@ class AppTheme {
             ),
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
             textStyle: const TextStyle(
-              fontFamily: 'Inter',
+              fontFamily: GoogleFonts.inter().fontFamily,
               fontWeight: FontWeight.w600,
               fontSize: 15,
             ),
@@ -183,7 +184,7 @@ class AppTheme {
   static ThemeData get light => ThemeData(
         useMaterial3: true,
         brightness: Brightness.light,
-        fontFamily: 'Inter',
+        fontFamily: GoogleFonts.inter().fontFamily,
         colorScheme: ColorScheme.fromSeed(
           seedColor: AppColors.primary,
           brightness: Brightness.light,

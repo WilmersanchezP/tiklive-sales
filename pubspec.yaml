@@ -32,6 +32,7 @@ dependencies:
   audio_waveforms: ^1.0.5
 
   # UI & Charts
+  google_fonts: ^6.2.1
   fl_chart: ^0.68.0
   shimmer: ^3.0.0
   cached_network_image: ^3.3.1
@@ -87,13 +88,4 @@ flutter:
     - assets/images/
     - assets/icons/
     - .env
-  fonts:
-    - family: Inter
-      fonts:
-        - asset: assets/fonts/Inter-Regular.ttf
-        - asset: assets/fonts/Inter-Medium.ttf
-          weight: 500
-        - asset: assets/fonts/Inter-SemiBold.ttf
-          weight: 600
-        - asset: assets/fonts/Inter-Bold.ttf
-          weight: 700
+  # Fonts loaded via google_fonts package (no local files needed)
