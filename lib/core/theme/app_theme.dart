@@ -56,7 +56,7 @@ class AppTheme {
           ),
           margin: const EdgeInsets.all(0),
         ),
-        appBarTheme: const AppBarTheme(
+        appBarTheme: AppBarTheme(
           backgroundColor: AppColors.surface900,
           foregroundColor: AppColors.textPrimary,
           elevation: 0,
@@ -94,7 +94,7 @@ class AppTheme {
               borderRadius: BorderRadius.circular(12),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-            textStyle: const TextStyle(
+            textStyle: TextStyle(
               fontFamily: GoogleFonts.inter().fontFamily,
               fontWeight: FontWeight.w600,
               fontSize: 15,
