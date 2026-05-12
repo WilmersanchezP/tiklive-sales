@@ -60,7 +60,10 @@ class ProductVariantModel with _$ProductVariantModel {
         sku: row['sku'] as String?,
         stockQuantity: (row['stock_quantity'] as num?)?.toInt() ?? 0,
       );
+}
 
+// Extension keeps toSupabase() outside Freezed to avoid codegen conflicts
+extension ProductVariantModelX on ProductVariantModel {
   Map<String, dynamic> toSupabase() => {
         'product_id': productId,
         'color': color,

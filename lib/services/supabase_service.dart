@@ -36,20 +36,11 @@ class SupabaseService {
     DateTime? from,
     String? status,
   }) async {
-    var query = _client
-        .from(AppConstants.tableOrders)
-        .select()
-        .order('created_at', ascending: false)
-        .limit(limit);
-
-    if (from != null) {
-      query = query.gte('created_at', from.toIso8601String());
-    }
-    if (status != null) {
-      query = query.eq('status', status);
-    }
-
-    final data = await query;
+    // Filters must be applied before order/limit in Supabase Flutter 2.x
+    var q = _client.from(AppConstants.tableOrders).select();
+    if (from != null) q = q.gte('created_at', from.toIso8601String());
+    if (status != null) q = q.eq('status', status);
+    final data = await q.order('created_at', ascending: false).limit(limit);
     return (data as List)
         .map((row) => OrderModel.fromSupabase(row as Map<String, dynamic>))
         .toList();
@@ -81,6 +72,14 @@ class SupabaseService {
   }
 
   // ── Products & Inventory ────────────────────────────────────────────────────
+  Future<void> createProduct({required String name, double? basePrice}) async {
+    await _client.from(AppConstants.tableProducts).insert({
+      'name': name,
+      if (basePrice != null) 'base_price': basePrice,
+      'created_by': currentUser?.id,
+    });
+  }
+
   Future<List<ProductModel>> getProducts({bool activeOnly = true}) async {
     var query = _client
         .from(AppConstants.tableProducts)

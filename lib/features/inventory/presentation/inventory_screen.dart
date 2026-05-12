@@ -128,12 +128,10 @@ class InventoryScreen extends ConsumerWidget {
           ElevatedButton(
             onPressed: () async {
               if (nameController.text.trim().isEmpty) return;
-              await ref.read(supabaseServiceProvider)._client
-                  .from(AppConstants.tableProducts)
-                  .insert({
-                'name': nameController.text.trim(),
-                'base_price': double.tryParse(priceController.text),
-              });
+              await ref.read(supabaseServiceProvider).createProduct(
+                    name: nameController.text.trim(),
+                    basePrice: double.tryParse(priceController.text),
+                  );
               ref.invalidate(productsProvider);
               if (ctx.mounted) Navigator.pop(ctx);
             },

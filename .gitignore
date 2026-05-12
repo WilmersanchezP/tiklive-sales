@@ -7,8 +7,9 @@ build/
 *.g.dart
 *.freezed.dart
 
-# Environment — NEVER commit real keys
-.env
+# Real env with keys — never commit
+.env.local
+.env.production
 
 # IDE
 .idea/

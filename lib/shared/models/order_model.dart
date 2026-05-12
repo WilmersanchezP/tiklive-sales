@@ -87,7 +87,10 @@ class OrderModel with _$OrderModel {
         sellerId: row['seller_id'] as String?,
         productVariantId: row['product_variant_id'] as String?,
       );
+}
 
+// Extension keeps toSupabase() outside Freezed to avoid codegen conflicts
+extension OrderModelX on OrderModel {
   Map<String, dynamic> toSupabase() => {
         'product_name': productName,
         'color': color,
@@ -106,7 +109,6 @@ class OrderModel with _$OrderModel {
       };
 }
 
-// Resultado del procesamiento de voz por la IA
 @freezed
 class ExtractedOrder with _$ExtractedOrder {
   const factory ExtractedOrder({
