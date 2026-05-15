@@ -84,10 +84,21 @@ class VoiceSalesNotifier extends StateNotifier<VoiceSalesState> {
 
     // 1. Transcribe audio via Whisper
     final transcript = await _voice.stopRecordingAndTranscribe();
-    if (transcript == null || transcript.trim().isEmpty) {
+    if (transcript == null) {
+      final err = _voice.lastError ?? 'unknown';
+      final msg = switch (err) {
+        'no_chunks' => 'Audio no capturado (0 bytes). Mantén presionado mientras hablas.',
+        String e when e.startsWith('whisper_401') => 'API key inválida. Contacta al administrador.',
+        String e when e.startsWith('whisper_') => 'Error al conectar con Whisper ($err). Verifica tu conexión.',
+        _ => 'Error al procesar el audio ($err). Intenta de nuevo.',
+      };
+      state = state.copyWith(recordingState: RecordingState.idle, errorMessage: msg);
+      return;
+    }
+    if (transcript.trim().isEmpty) {
       state = state.copyWith(
         recordingState: RecordingState.idle,
-        errorMessage: 'No se detectó audio. Habla más cerca del micrófono.',
+        errorMessage: 'No se detectó habla. Habla más fuerte y cerca del micrófono.',
       );
       return;
     }

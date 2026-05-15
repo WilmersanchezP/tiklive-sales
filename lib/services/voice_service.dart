@@ -25,6 +25,9 @@ class VoiceService {
   bool _usingStream = false;
   AudioEncoder _webEncoder = AudioEncoder.opus;
 
+  /// Last error detail from stopRecordingAndTranscribe (null = no error).
+  String? lastError;
+
   Future<bool> requestMicrophonePermission() async {
     if (kIsWeb) return true;
     final status = await Permission.microphone.request();
@@ -109,7 +112,10 @@ class VoiceService {
   }
 
   Future<String?> stopRecordingAndTranscribe({String language = 'es'}) async {
+    lastError = null;
+
     if (!await _recorder.isRecording()) {
+      lastError = 'not_recording';
       debugPrint('[VoiceService] Not recording — abort');
       return null;
     }
@@ -128,6 +134,7 @@ class VoiceService {
         _streamDone = null;
 
         if (_webChunks.isEmpty) {
+          lastError = 'no_chunks';
           debugPrint('[VoiceService] No stream chunks captured');
           return null;
         }
@@ -208,9 +215,11 @@ class VoiceService {
       debugPrint('[VoiceService] Whisper: $text');
       return text;
     } on DioException catch (e) {
+      lastError = 'whisper_${e.response?.statusCode ?? 'net'}';
       debugPrint('[VoiceService] Whisper error ${e.response?.statusCode}: ${e.response?.data}');
       return null;
     } catch (e) {
+      lastError = 'whisper_exception';
       debugPrint('[VoiceService] Unexpected error: $e');
       return null;
     }
