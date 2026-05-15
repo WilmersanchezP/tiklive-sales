@@ -64,7 +64,10 @@ class VoiceSalesNotifier extends StateNotifier<VoiceSalesState> {
     final started = await _voice.startRecording();
     if (!started) {
       state = state.copyWith(
-        errorMessage: 'No se pudo acceder al micrófono. Revisa los permisos.',
+        errorMessage:
+            'No se pudo acceder al micrófono.\n'
+            'En Safari iOS: Ajustes → Safari → Micrófono → Permitir.\n'
+            'Si tienes Lockdown Mode activo, desactívalo para esta página.',
       );
       return;
     }
