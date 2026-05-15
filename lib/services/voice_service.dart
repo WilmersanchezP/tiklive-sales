@@ -17,11 +17,11 @@ class VoiceService {
   // Native (iOS/Android/desktop)
   String? _currentAudioPath;
 
-  // Web: collect stream chunks instead of using blob URL.
-  // The blob URL approach via package:http is unreliable in Flutter web
-  // because BrowserClient may not handle blob: scheme correctly.
+  // Web: collect stream chunks directly.
+  // encoder detected at runtime: opus (Chrome/Android) or aacLc (Safari/iOS)
   StreamSubscription<Uint8List>? _streamSub;
   final List<Uint8List> _webChunks = [];
+  AudioEncoder _webEncoder = AudioEncoder.opus;
 
   Future<bool> requestMicrophonePermission() async {
     if (kIsWeb) return true;
@@ -39,9 +39,14 @@ class VoiceService {
       _webChunks.clear();
 
       if (kIsWeb) {
+        // Safari/iOS only supports AAC; Chrome/Firefox/Android support opus.
+        final supportsOpus = await _recorder.isEncoderSupported(AudioEncoder.opus);
+        _webEncoder = supportsOpus ? AudioEncoder.opus : AudioEncoder.aacLc;
+        debugPrint('[VoiceService] Using encoder: $_webEncoder');
+
         final stream = await _recorder.startStream(
-          const RecordConfig(
-            encoder: AudioEncoder.opus,
+          RecordConfig(
+            encoder: _webEncoder,
             bitRate: 128000,
             sampleRate: 16000,
             numChannels: 1,
@@ -94,10 +99,12 @@ class VoiceService {
         _webChunks.expand((c) => c).toList(),
       );
       _webChunks.clear();
-      debugPrint('[VoiceService] Sending ${bytes.length} bytes to Whisper');
+      // filename extension must match encoder so Whisper picks correct decoder
+      final filename = _webEncoder == AudioEncoder.aacLc ? 'audio.m4a' : 'audio.webm';
+      debugPrint('[VoiceService] Sending ${bytes.length} bytes ($filename) to Whisper');
 
       return _callWhisperApi(
-        MultipartFile.fromBytes(bytes, filename: 'audio.webm'),
+        MultipartFile.fromBytes(bytes, filename: filename),
         language: language,
       );
     } else {
