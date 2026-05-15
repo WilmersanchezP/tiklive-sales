@@ -18,8 +18,9 @@ class VoiceService {
   // Native
   String? _currentAudioPath;
 
-  // Web stream approach (Chrome/Android)
+  // Web stream approach
   StreamSubscription<Uint8List>? _streamSub;
+  Completer<void>? _streamDone; // signals all chunks received (stream closed)
   final List<Uint8List> _webChunks = [];
   bool _usingStream = false;
   AudioEncoder _webEncoder = AudioEncoder.opus;
@@ -56,9 +57,16 @@ class VoiceService {
               numChannels: 1,
             ),
           );
+          final done = Completer<void>();
+          _streamDone = done;
           _streamSub = stream.listen(
             (chunk) => _webChunks.add(chunk),
-            onError: (e) => debugPrint('[VoiceService] Stream chunk error: $e'),
+            onDone: () { if (!done.isCompleted) done.complete(); },
+            onError: (e) {
+              debugPrint('[VoiceService] Stream error: $e');
+              if (!done.isCompleted) done.complete();
+            },
+            cancelOnError: false,
           );
           _usingStream = true;
           debugPrint('[VoiceService] startStream OK');
@@ -109,8 +117,15 @@ class VoiceService {
     if (kIsWeb) {
       if (_usingStream) {
         await _recorder.stop();
+        // Wait for stream to close so all chunks (including the final iOS batch)
+        // are delivered before we read _webChunks. Timeout = 3 s safety net.
+        await _streamDone?.future.timeout(
+          const Duration(seconds: 3),
+          onTimeout: () {},
+        );
         await _streamSub?.cancel();
         _streamSub = null;
+        _streamDone = null;
 
         if (_webChunks.isEmpty) {
           debugPrint('[VoiceService] No stream chunks captured');
@@ -207,6 +222,8 @@ class VoiceService {
     if (await _recorder.isRecording()) await _recorder.cancel();
     await _streamSub?.cancel();
     _streamSub = null;
+    if (!(_streamDone?.isCompleted ?? true)) _streamDone?.complete();
+    _streamDone = null;
     _webChunks.clear();
     _cleanupTempFile();
   }
