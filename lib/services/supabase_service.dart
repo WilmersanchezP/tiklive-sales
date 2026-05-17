@@ -40,7 +40,10 @@ class SupabaseService {
     var q = _client.from(AppConstants.tableOrders).select();
     if (from != null) q = q.gte('created_at', from.toIso8601String());
     if (status != null) q = q.eq('status', status);
-    final data = await q.order('created_at', ascending: false).limit(limit);
+    final data = await q
+        .order('created_at', ascending: false)
+        .limit(limit)
+        .timeout(const Duration(seconds: 10), onTimeout: () => []);
     return (data as List)
         .map((row) => OrderModel.fromSupabase(row as Map<String, dynamic>))
         .toList();
@@ -120,13 +123,15 @@ class SupabaseService {
   Future<DashboardStats> getDashboardStats() async {
     final now = DateTime.now();
     final todayStart = DateTime(now.year, now.month, now.day);
+    const t = Duration(seconds: 8);
 
+    // Each sub-query has its own timeout so one hang never blocks all.
     final results = await Future.wait([
-      _getTodayOrders(todayStart),
-      _getPendingCount(),
-      getLowStockVariants(),
-      _getTopProducts(todayStart),
-      _getSalesChart(),
+      _getTodayOrders(todayStart).timeout(t, onTimeout: () => []),
+      _getPendingCount().timeout(t, onTimeout: () => 0),
+      getLowStockVariants().timeout(t, onTimeout: () => []),
+      _getTopProducts(todayStart).timeout(t, onTimeout: () => []),
+      _getSalesChart().timeout(t, onTimeout: () => []),
     ]);
 
     final todayOrders = results[0] as List<OrderModel>;
@@ -155,12 +160,13 @@ class SupabaseService {
         limit: 500,
       );
 
+  // Uses select+length instead of .count() to avoid API version inconsistencies.
   Future<int> _getPendingCount() async {
-    final count = await _client
+    final data = await _client
         .from(AppConstants.tableOrders)
-        .count()
+        .select('id')
         .eq('status', 'PENDING');
-    return count;
+    return (data as List).length;
   }
 
   Future<List<TopProduct>> _getTopProducts(DateTime from) async {
