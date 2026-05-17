@@ -103,7 +103,7 @@ extension OrderModelX on OrderModel {
         'live_session_id': liveSessionId,
         'notes': notes,
         'unit_price': unitPrice,
-        'total_price': totalPrice,
+        // total_price is GENERATED ALWAYS AS (unit_price * quantity) in Postgres
         'seller_id': sellerId,
         'product_variant_id': productVariantId,
       };
