@@ -47,9 +47,11 @@ class SupabaseService {
   }
 
   Future<OrderModel> createOrder(OrderModel order) async {
+    final data = order.toSupabase()
+      ..['seller_id'] = currentUser?.id; // RLS requires seller_id = auth.uid()
     final row = await _client
         .from(AppConstants.tableOrders)
-        .insert(order.toSupabase())
+        .insert(data)
         .select()
         .single();
 
