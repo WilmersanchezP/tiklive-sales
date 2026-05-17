@@ -189,14 +189,26 @@ class VoiceSalesNotifier extends StateNotifier<VoiceSalesState> {
 
   // ── Session management ────────────────────────────────────────────────────────
   Future<void> startLiveSession(String title) async {
-    final session = await _db.startLiveSession(title);
-    state = state.copyWith(currentSessionId: session['id'] as String);
+    try {
+      final session = await _db.startLiveSession(title);
+      final id = session['id'] as String?;
+      if (id == null) {
+        state = state.copyWith(errorMessage: 'No se pudo iniciar la sesión live.');
+        return;
+      }
+      state = state.copyWith(currentSessionId: id);
+    } catch (e) {
+      state = state.copyWith(errorMessage: 'Error al iniciar sesión: $e');
+    }
   }
 
   Future<void> endLiveSession() async {
-    if (state.currentSessionId != null) {
+    if (state.currentSessionId == null) return;
+    try {
       await _db.endLiveSession(state.currentSessionId!);
       state = state.copyWith(currentSessionId: null);
+    } catch (e) {
+      state = state.copyWith(errorMessage: 'Error al finalizar sesión: $e');
     }
   }
 

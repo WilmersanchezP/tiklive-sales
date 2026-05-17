@@ -36,7 +36,10 @@ class DashboardScreen extends ConsumerWidget {
         error: (e, _) => Center(
           child: Text('Error al cargar: $e', style: const TextStyle(color: AppColors.accentRed)),
         ),
-        data: (stats) => _DashboardContent(stats: stats),
+        data: (stats) => _DashboardContent(
+          stats: stats,
+          onRefresh: () => ref.refresh(dashboardStatsProvider.future),
+        ),
       ),
     );
   }
@@ -44,8 +47,9 @@ class DashboardScreen extends ConsumerWidget {
 
 class _DashboardContent extends StatelessWidget {
   final DashboardStats stats;
+  final Future<DashboardStats> Function() onRefresh;
 
-  const _DashboardContent({required this.stats});
+  const _DashboardContent({required this.stats, required this.onRefresh});
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +58,7 @@ class _DashboardContent extends StatelessWidget {
     return RefreshIndicator(
       color: AppColors.primary,
       backgroundColor: AppColors.surface800,
-      onRefresh: () async {},
+      onRefresh: onRefresh,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(20),

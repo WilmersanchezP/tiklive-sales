@@ -1,4 +1,7 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:excel/excel.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
@@ -7,6 +10,9 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:share_plus/share_plus.dart';
 import 'package:tiklive_sales/shared/models/order_model.dart';
+
+import 'web_download_stub.dart'
+    if (dart.library.js_interop) 'web_download_web.dart';
 
 class ExportService {
   static final _dateFormat = DateFormat('dd/MM/yyyy HH:mm', 'es');
@@ -20,7 +26,6 @@ class ExportService {
     final excel = Excel.createExcel();
     final sheet = excel['Pedidos'];
 
-    // Header row
     final headers = [
       'Fecha', 'Producto', 'Color', 'Talla', 'Cantidad',
       'Cliente', 'Pago', 'Estado', 'Total', 'Notas',
@@ -35,7 +40,6 @@ class ExportService {
       );
     }
 
-    // Data rows
     for (var i = 0; i < orders.length; i++) {
       final o = orders[i];
       final row = [
@@ -60,8 +64,8 @@ class ExportService {
     final bytes = excel.encode();
     if (bytes == null) return;
 
-    await _shareBytes(
-      bytes,
+    await _download(
+      Uint8List.fromList(bytes),
       fileName: 'tiklive_${title}_${_fileDate.format(DateTime.now())}.xlsx',
       mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     );
@@ -106,7 +110,6 @@ class ExportService {
           ],
         ),
         build: (context) => [
-          // Summary row
           pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
@@ -119,7 +122,6 @@ class ExportService {
             ],
           ),
           pw.SizedBox(height: 16),
-          // Table
           pw.Table(
             border: pw.TableBorder.all(color: PdfColors.grey300),
             columnWidths: {
@@ -173,7 +175,7 @@ class ExportService {
     );
 
     final bytes = await doc.save();
-    await _shareBytes(
+    await _download(
       bytes,
       fileName: 'tiklive_${_fileDate.format(now)}.pdf',
       mimeType: 'application/pdf',
@@ -198,34 +200,26 @@ class ExportService {
       ].join(','));
     }
 
-    await _shareBytes(
-      buffer.toString().codeUnits,
+    await _download(
+      Uint8List.fromList(utf8.encode(buffer.toString())),
       fileName: 'tiklive_${_fileDate.format(DateTime.now())}.csv',
-      mimeType: 'text/csv',
+      mimeType: 'text/csv; charset=utf-8',
     );
   }
 
-  // ── Helpers ──────────────────────────────────────────────────────────────────
-  Future<void> _shareBytes(
-    dynamic bytes,
-    {required String fileName, required String mimeType}
-  ) async {
+  // ── Download helper ──────────────────────────────────────────────────────────
+  Future<void> _download(
+    Uint8List bytes, {
+    required String fileName,
+    required String mimeType,
+  }) async {
     if (kIsWeb) {
-      // Web: trigger download via anchor element (handled via share_plus on web)
-      await Share.shareXFiles(
-        [XFile.fromData(bytes is String ? Uint8List.fromList(bytes.codeUnits) : Uint8List.fromList(bytes as List<int>), mimeType: mimeType, name: fileName)],
-        subject: fileName,
-      );
+      await triggerWebDownload(bytes, fileName, mimeType);
       return;
     }
-
     final dir = await getTemporaryDirectory();
     final file = File('${dir.path}/$fileName');
-    if (bytes is String) {
-      await file.writeAsString(bytes);
-    } else {
-      await file.writeAsBytes(bytes as List<int>);
-    }
+    await file.writeAsBytes(bytes);
     await Share.shareXFiles([XFile(file.path)], subject: fileName);
   }
 
