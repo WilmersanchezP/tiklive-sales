@@ -101,15 +101,20 @@ class SupabaseService {
   }
 
   Future<List<ProductVariantModel>> getLowStockVariants() async {
-    final data = await _client
-        .from(AppConstants.tableProductVariants)
-        .select('*, products(name)')
-        .lte('stock_quantity', AppConstants.lowStockThreshold)
-        .order('stock_quantity');
+    try {
+      final data = await _client
+          .from(AppConstants.tableProductVariants)
+          .select('*, products(name)')
+          .lte('stock_quantity', AppConstants.lowStockThreshold)
+          .order('stock_quantity');
 
-    return (data as List)
-        .map((row) => ProductVariantModel.fromSupabase(row as Map<String, dynamic>))
-        .toList();
+      return (data as List)
+          .map((row) => ProductVariantModel.fromSupabase(row as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      debugPrint('[SupabaseService] getLowStockVariants error: $e');
+      return [];
+    }
   }
 
   Future<void> adjustStock(String variantId, int delta) async {
@@ -170,37 +175,45 @@ class SupabaseService {
   }
 
   Future<List<TopProduct>> _getTopProducts(DateTime from) async {
-    final data = await _client.rpc('get_top_products', params: {
-      'from_date': from.toIso8601String(),
-      'limit_count': 5,
-    });
-
-    if (data == null) return [];
-    return (data as List).map((row) {
-      final m = row as Map<String, dynamic>;
-      return TopProduct(
-        productName: m['product_name'] as String,
-        unitsSold: (m['units_sold'] as num).toInt(),
-        revenue: (m['revenue'] as num).toDouble(),
-      );
-    }).toList();
+    try {
+      final data = await _client.rpc('get_top_products', params: {
+        'from_date': from.toIso8601String(),
+        'limit_count': 5,
+      });
+      if (data == null) return [];
+      return (data as List).map((row) {
+        final m = row as Map<String, dynamic>;
+        return TopProduct(
+          productName: m['product_name'] as String,
+          unitsSold: (m['units_sold'] as num).toInt(),
+          revenue: (m['revenue'] as num).toDouble(),
+        );
+      }).toList();
+    } catch (e) {
+      debugPrint('[SupabaseService] _getTopProducts error: $e');
+      return [];
+    }
   }
 
   Future<List<SalesDataPoint>> _getSalesChart() async {
-    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
-    final data = await _client.rpc('get_daily_sales', params: {
-      'from_date': sevenDaysAgo.toIso8601String(),
-    });
-
-    if (data == null) return [];
-    return (data as List).map((row) {
-      final m = row as Map<String, dynamic>;
-      return SalesDataPoint(
-        date: DateTime.parse(m['sale_date'] as String),
-        revenue: (m['revenue'] as num).toDouble(),
-        orderCount: (m['order_count'] as num).toInt(),
-      );
-    }).toList();
+    try {
+      final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+      final data = await _client.rpc('get_daily_sales', params: {
+        'from_date': sevenDaysAgo.toIso8601String(),
+      });
+      if (data == null) return [];
+      return (data as List).map((row) {
+        final m = row as Map<String, dynamic>;
+        return SalesDataPoint(
+          date: DateTime.parse(m['sale_date'] as String),
+          revenue: (m['revenue'] as num).toDouble(),
+          orderCount: (m['order_count'] as num).toInt(),
+        );
+      }).toList();
+    } catch (e) {
+      debugPrint('[SupabaseService] _getSalesChart error: $e');
+      return [];
+    }
   }
 
   // ── Live Sessions ───────────────────────────────────────────────────────────

@@ -12,7 +12,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:tiklive_sales/shared/models/order_model.dart';
 
 import 'web_download_stub.dart'
-    if (dart.library.js_interop) 'web_download_web.dart';
+    if (dart.library.html) 'web_download_web.dart';
 
 class ExportService {
   static final _dateFormat = DateFormat('dd/MM/yyyy HH:mm', 'es');

@@ -70,9 +70,6 @@ dependencies:
   # WebSocket / Realtime TikTok bridge
   web_socket_channel: ^3.0.1
 
-  # Web APIs (file download on Flutter Web)
-  web: ^0.5.1
-
 dev_dependencies:
   flutter_test:
     sdk: flutter

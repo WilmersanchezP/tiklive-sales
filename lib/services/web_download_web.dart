@@ -1,21 +1,16 @@
-import 'dart:js_interop';
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:html' as html;
 import 'dart:typed_data';
-
-import 'package:web/web.dart' as web;
 
 Future<void> triggerWebDownload(
   Uint8List bytes,
   String fileName,
   String mimeType,
 ) async {
-  final blob = web.Blob(
-    [bytes.toJS].toJS,
-    web.BlobPropertyBag(type: mimeType),
-  );
-  final url = web.URL.createObjectURL(blob);
-  (web.document.createElement('a') as web.HTMLAnchorElement)
-    ..href = url
-    ..download = fileName
+  final blob = html.Blob([bytes], mimeType);
+  final url = html.Url.createObjectUrlFromBlob(blob);
+  html.AnchorElement(href: url)
+    ..setAttribute('download', fileName)
     ..click();
-  web.URL.revokeObjectURL(url);
+  html.Url.revokeObjectUrl(url);
 }
