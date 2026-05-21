@@ -130,20 +130,38 @@ class SupabaseService {
     final todayStart = DateTime(now.year, now.month, now.day);
     const t = Duration(seconds: 8);
 
-    // Each sub-query has its own timeout so one hang never blocks all.
-    final results = await Future.wait([
-      _getTodayOrders(todayStart).timeout(t, onTimeout: () => []),
-      _getPendingCount().timeout(t, onTimeout: () => 0),
-      getLowStockVariants().timeout(t, onTimeout: () => []),
-      _getTopProducts(todayStart).timeout(t, onTimeout: () => []),
-      _getSalesChart().timeout(t, onTimeout: () => []),
-    ]);
+    // Each query runs independently so one failure never blocks the others.
+    List<OrderModel> todayOrders = [];
+    int pendingCount = 0;
+    List<ProductVariantModel> lowStock = [];
+    List<TopProduct> topProducts = [];
+    List<SalesDataPoint> chart = [];
 
-    final todayOrders = results[0] as List<OrderModel>;
-    final pendingCount = results[1] as int;
-    final lowStock = results[2] as List<ProductVariantModel>;
-    final topProducts = results[3] as List<TopProduct>;
-    final chart = results[4] as List<SalesDataPoint>;
+    try {
+      todayOrders = await _getTodayOrders(todayStart).timeout(t, onTimeout: () => []);
+    } catch (e) {
+      debugPrint('[Dashboard] todayOrders: $e');
+    }
+    try {
+      pendingCount = await _getPendingCount().timeout(t, onTimeout: () => 0);
+    } catch (e) {
+      debugPrint('[Dashboard] pendingCount: $e');
+    }
+    try {
+      lowStock = await getLowStockVariants().timeout(t, onTimeout: () => []);
+    } catch (e) {
+      debugPrint('[Dashboard] lowStock: $e');
+    }
+    try {
+      topProducts = await _getTopProducts(todayStart).timeout(t, onTimeout: () => []);
+    } catch (e) {
+      debugPrint('[Dashboard] topProducts: $e');
+    }
+    try {
+      chart = await _getSalesChart().timeout(t, onTimeout: () => []);
+    } catch (e) {
+      debugPrint('[Dashboard] chart: $e');
+    }
 
     final revenue = todayOrders.fold<double>(
       0,
