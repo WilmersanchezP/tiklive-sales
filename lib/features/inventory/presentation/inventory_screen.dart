@@ -27,6 +27,11 @@ class InventoryScreen extends ConsumerWidget {
         title: const Text('Inventario'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: () => ref.invalidate(productsProvider),
+            tooltip: 'Actualizar',
+          ),
+          IconButton(
             icon: const Icon(Icons.add_rounded),
             onPressed: () => _showAddProductDialog(context, ref),
             tooltip: 'Agregar producto',
@@ -128,12 +133,23 @@ class InventoryScreen extends ConsumerWidget {
           ElevatedButton(
             onPressed: () async {
               if (nameController.text.trim().isEmpty) return;
-              await ref.read(supabaseServiceProvider).createProduct(
-                    name: nameController.text.trim(),
-                    basePrice: double.tryParse(priceController.text),
+              try {
+                await ref.read(supabaseServiceProvider).createProduct(
+                      name: nameController.text.trim(),
+                      basePrice: double.tryParse(priceController.text),
+                    );
+                ref.invalidate(productsProvider);
+                if (ctx.mounted) Navigator.pop(ctx);
+              } catch (e) {
+                if (ctx.mounted) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    SnackBar(
+                      content: Text('Error al guardar: $e'),
+                      backgroundColor: Colors.red.shade700,
+                    ),
                   );
-              ref.invalidate(productsProvider);
-              if (ctx.mounted) Navigator.pop(ctx);
+                }
+              }
             },
             child: const Text('Guardar'),
           ),

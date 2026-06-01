@@ -31,6 +31,11 @@ class OrdersScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Pedidos'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: () => ref.invalidate(filteredOrdersProvider),
+            tooltip: 'Actualizar',
+          ),
           // Export button
           ordersAsync.when(
             data: (orders) => IconButton(
@@ -256,8 +261,12 @@ class _OrderCard extends ConsumerWidget {
           .slideY(begin: 0.05, end: 0);
 
   Future<void> _updateStatus(WidgetRef ref, OrderStatus status) async {
-    await ref.read(supabaseServiceProvider).updateOrderStatus(order.id, status);
-    ref.invalidate(filteredOrdersProvider);
+    try {
+      await ref.read(supabaseServiceProvider).updateOrderStatus(order.id, status);
+      ref.invalidate(filteredOrdersProvider);
+    } catch (e) {
+      debugPrint('[OrdersScreen] updateStatus error: $e');
+    }
   }
 }
 
