@@ -58,7 +58,6 @@ class SupabaseService {
         .select()
         .single();
 
-    // Decrement inventory if variant known
     if (order.productVariantId != null) {
       await _decrementStock(order.productVariantId!, order.quantity);
     }
@@ -89,12 +88,10 @@ class SupabaseService {
     var query = _client
         .from(AppConstants.tableProducts)
         .select('*, product_variants(*)');
-
-    if (activeOnly) {
-      query = query.eq('is_active', true);
-    }
-
-    final data = await query.order('name');
+    if (activeOnly) query = query.eq('is_active', true);
+    final data = await query
+        .order('name')
+        .timeout(const Duration(seconds: 10), onTimeout: () => []);
     return (data as List)
         .map((row) => ProductModel.fromSupabase(row as Map<String, dynamic>))
         .toList();
@@ -106,13 +103,13 @@ class SupabaseService {
           .from(AppConstants.tableProductVariants)
           .select('*, products(name)')
           .lte('stock_quantity', AppConstants.lowStockThreshold)
-          .order('stock_quantity');
-
+          .order('stock_quantity')
+          .timeout(const Duration(seconds: 8), onTimeout: () => []);
       return (data as List)
           .map((row) => ProductVariantModel.fromSupabase(row as Map<String, dynamic>))
           .toList();
     } catch (e) {
-      debugPrint('[SupabaseService] getLowStockVariants error: $e');
+      debugPrint('[SupabaseService] getLowStockVariants: $e');
       return [];
     }
   }
@@ -130,38 +127,35 @@ class SupabaseService {
     final todayStart = DateTime(now.year, now.month, now.day);
     const t = Duration(seconds: 8);
 
-    // Each query runs independently so one failure never blocks the others.
-    List<OrderModel> todayOrders = [];
-    int pendingCount = 0;
-    List<ProductVariantModel> lowStock = [];
-    List<TopProduct> topProducts = [];
-    List<SalesDataPoint> chart = [];
+    // Start all 5 futures simultaneously — they run in parallel.
+    // _safe() absorbs any exception so one failure never blocks the others.
+    final fOrders = _safe(
+      _getTodayOrders(todayStart).timeout(t, onTimeout: () => []),
+      <OrderModel>[],
+    );
+    final fPending = _safe(
+      _getPendingCount().timeout(t, onTimeout: () => 0),
+      0,
+    );
+    final fLowStock = _safe(
+      getLowStockVariants(),
+      <ProductVariantModel>[],
+    );
+    final fTopProducts = _safe(
+      _getTopProducts(todayStart).timeout(t, onTimeout: () => []),
+      <TopProduct>[],
+    );
+    final fChart = _safe(
+      _getSalesChart().timeout(t, onTimeout: () => []),
+      <SalesDataPoint>[],
+    );
 
-    try {
-      todayOrders = await _getTodayOrders(todayStart).timeout(t, onTimeout: () => []);
-    } catch (e) {
-      debugPrint('[Dashboard] todayOrders: $e');
-    }
-    try {
-      pendingCount = await _getPendingCount().timeout(t, onTimeout: () => 0);
-    } catch (e) {
-      debugPrint('[Dashboard] pendingCount: $e');
-    }
-    try {
-      lowStock = await getLowStockVariants().timeout(t, onTimeout: () => []);
-    } catch (e) {
-      debugPrint('[Dashboard] lowStock: $e');
-    }
-    try {
-      topProducts = await _getTopProducts(todayStart).timeout(t, onTimeout: () => []);
-    } catch (e) {
-      debugPrint('[Dashboard] topProducts: $e');
-    }
-    try {
-      chart = await _getSalesChart().timeout(t, onTimeout: () => []);
-    } catch (e) {
-      debugPrint('[Dashboard] chart: $e');
-    }
+    // Await each result — max wait = 8 s (all run concurrently)
+    final todayOrders = await fOrders;
+    final pendingCount = await fPending;
+    final lowStock = await fLowStock;
+    final topProducts = await fTopProducts;
+    final chart = await fChart;
 
     final revenue = todayOrders.fold<double>(
       0,
@@ -183,12 +177,12 @@ class SupabaseService {
         limit: 500,
       );
 
-  // Uses select+length instead of .count() to avoid API version inconsistencies.
   Future<int> _getPendingCount() async {
     final data = await _client
         .from(AppConstants.tableOrders)
         .select('id')
-        .eq('status', 'PENDING');
+        .eq('status', 'PENDING')
+        .timeout(const Duration(seconds: 8), onTimeout: () => []);
     return (data as List).length;
   }
 
@@ -208,7 +202,7 @@ class SupabaseService {
         );
       }).toList();
     } catch (e) {
-      debugPrint('[SupabaseService] _getTopProducts error: $e');
+      debugPrint('[SupabaseService] _getTopProducts: $e');
       return [];
     }
   }
@@ -229,7 +223,7 @@ class SupabaseService {
         );
       }).toList();
     } catch (e) {
-      debugPrint('[SupabaseService] _getSalesChart error: $e');
+      debugPrint('[SupabaseService] _getSalesChart: $e');
       return [];
     }
   }
@@ -288,6 +282,18 @@ class SupabaseService {
   }
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
+
+  // Runs [future] and returns [fallback] on any exception instead of throwing.
+  // Used in getDashboardStats so each sub-query fails independently.
+  Future<T> _safe<T>(Future<T> future, T fallback) async {
+    try {
+      return await future;
+    } catch (e) {
+      debugPrint('[SupabaseService] _safe caught: $e');
+      return fallback;
+    }
+  }
+
   Future<void> _decrementStock(String variantId, int quantity) async {
     try {
       await _client.rpc('adjust_stock', params: {
@@ -295,7 +301,7 @@ class SupabaseService {
         'delta': -quantity,
       });
     } catch (e) {
-      debugPrint('[SupabaseService] Stock decrement error: $e');
+      debugPrint('[SupabaseService] _decrementStock: $e');
     }
   }
 }

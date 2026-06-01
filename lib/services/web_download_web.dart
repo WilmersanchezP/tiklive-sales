@@ -9,8 +9,16 @@ Future<void> triggerWebDownload(
 ) async {
   final blob = html.Blob([bytes], mimeType);
   final url = html.Url.createObjectUrlFromBlob(blob);
-  html.AnchorElement(href: url)
+
+  // Append to body so all browsers (incl. Safari) recognise the click as valid.
+  final anchor = html.document.createElement('a') as html.AnchorElement
+    ..href = url
     ..setAttribute('download', fileName)
-    ..click();
-  html.Url.revokeObjectUrl(url);
+    ..style.display = 'none';
+  html.document.body!.children.add(anchor);
+  anchor.click();
+  anchor.remove();
+
+  // Give the browser time to start the download before releasing the blob URL.
+  Future.delayed(const Duration(seconds: 2), () => html.Url.revokeObjectUrl(url));
 }
